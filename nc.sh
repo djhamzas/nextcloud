@@ -1,3 +1,4 @@
+#  Cerated By hamza BEKHTI  djhamzas@gmail.com #
 sudo apt install apache2 mariadb-server libapache2-mod-php \
 php-gd php-mysql php-curl php-xml php-zip php-mbstring php-intl php-bcmath unzip wget -y
 #
