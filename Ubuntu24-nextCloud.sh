@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script d'installation automatique d'Ubuntu 24.04 Server
+# Script d'installation automatique d'Ubuntu 24.04 Server  created bu Hamza BEKHTI  djhamzas@gmail.com
 # Version simplifiée avec un minimum de variables
 
 # Couleurs pour l'affichage
