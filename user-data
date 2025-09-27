@@ -1,0 +1,125 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  # Locale and keyboard for French
+  locale: fr_FR.UTF-8
+  keyboard:
+    layout: fr
+
+  # Network configuration
+  network:
+    version: 2
+    renderer: networkd
+    ethernets:
+      enp1s0:
+        dhcp4: false
+        dhcp6: false
+        addresses:
+          - 192.168.10.30/24
+        routes:
+          - to: default
+            via: 192.168.10.2
+        nameservers:
+          addresses: [8.8.8.8, 8.8.4.4]
+          search: [local]
+
+  # Storage: no swap
+  storage:
+    layout:
+      name: direct
+    swap:
+      size: 0
+
+  # User configuration
+  identity:
+    hostname: nextcloud-server
+    username: ubuntu
+    password: "$6$rounds=4096$saltsalt$L9FsLm5o8NdmqrB2IJHpLjNTSFSKz6vxUkM8DjE5VD4ZZyHHYLYJhH8ZJHhEpF.P3GKvN/1vGjDUy1yVvxvIq."
+
+  # SSH configuration
+  ssh:
+    install-server: true
+    allow-pw: true
+    authorized-keys: []
+
+  # Essential utilities to install
+  packages:
+    - openssh-server
+    - apache2
+    - mariadb-server
+    - php
+    - php-mysql
+    - php-xml
+    - php-curl
+    - php-zip
+    - php-gd
+    - php-mbstring
+    - php-intl
+    - php-bcmath
+    - php-imagick
+    - unzip
+    - curl
+    - wget
+    - git
+    - vim
+    - htop
+    - net-tools
+    - software-properties-common
+    - apt-transport-https
+    - ca-certificates
+    - gnupg
+    - lsb-release
+    - ufw
+    - fail2ban
+    - unattended-upgrades
+    - bridge-utils
+
+  # Update & upgrade packages
+  package_update: true
+  package_upgrade: true
+
+  # Early diagnostics
+  early-commands:
+    - echo "Starting Ubuntu autoinstall..."
+
+  # Late configuration
+  late-commands:
+    - curtin in-target --target=/target -- bash -c "export DEBIAN_FRONTEND=noninteractive"
+    - curtin in-target --target=/target -- bash -c "export NEEDRESTART_MODE=a"
+
+    # Run custom script from cloud-init ISO root
+
+    # Firewall rules
+    - curtin in-target --target=/target -- ufw --force enable
+    - curtin in-target --target=/target -- ufw default deny incoming
+    - curtin in-target --target=/target -- ufw default allow outgoing
+    - curtin in-target --target=/target -- ufw allow ssh
+    - curtin in-target --target=/target -- ufw allow 80/tcp comment 'HTTP'
+    - curtin in-target --target=/target -- ufw allow 443/tcp comment 'HTTPS'
+    - curtin in-target --target=/target -- ufw allow 3306/tcp comment 'mariadb'
+
+    # Enable automatic updates
+    - curtin in-target --target=/target -- systemctl enable unattended-upgrades
+
+    # Timezone
+    - curtin in-target --target=/target -- timedatectl set-timezone Europe/Paris
+
+    # Secure SSH
+    - curtin in-target --target=/target -- sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+    - curtin in-target --target=/target -- sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+    # Create admin user
+    - curtin in-target --target=/target -- useradd -m -s /bin/bash -G sudo admin
+    - curtin in-target --target=/target -- bash -c "echo 'admin:admin' | chpasswd"
+
+    # Prepare for running Odoo installer with non-interactive flags
+    - curtin in-target --target=/target -- bash -c "DEBIAN_FRONTEND=noninteractive apt-get update -y"
+    - curtin in-target --target=/target -- bash -c "DEBIAN_FRONTEND=noninteractive apt-get install -y -q wget git"
+
+    # Execute next cloud installation script with automatic yes responses
+    - curtin in-target --target=/target -- bash -c "export DEBIAN_FRONTEND=noninteractive && wget -O /tmp/nc.sh https://raw.githubusercontent.com/djhamzas/nextcloud/refs/heads/main/nc.sh && chmod +x /tmp/nc.sh && yes | /tmp/nc.sh"
+
+    # Wait until nextcloud service is active
+    - curtin in-target --target=/target -- bash -c "while ! systemctl is-active --quiet nexcloud; do echo 'Waiting for nextcould to start...' && sleep 5; done"
+
